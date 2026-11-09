@@ -858,9 +858,11 @@ varying float vSide, vGap, vMU, vTeeth;
 void main() {
   vec4 c;
   if (uLayer > 0.5) {
+    if (uHasRest > 0.5 && uWavePose < 0.005) discard;
     c = texture2D(uHandTex, vHandUV);
     if (uHasRest > 0.5) {
-      c.a *= uWavePose;
+      // Scales BOTH RGB and alpha for premultiplied alpha blending (gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+      c *= uWavePose;
     }
   } else {
     vec4 cWave = texture2D(uTex, vUV);
@@ -1076,7 +1078,8 @@ void main() {
       s('uWavePose',  P.wavePose !== undefined ? P.wavePose : 1.0);
       s('uLayer', 0);
       gl.drawElements(gl.TRIANGLES, this.count, gl.UNSIGNED_INT, 0);
-      if (this.handCount) {
+      const waveAlpha = P.wavePose !== undefined ? P.wavePose : 1.0;
+      if (this.handCount && (!this.hasRest || waveAlpha > 0.002)) {
         s('uLayer', 1);
         gl.drawElements(gl.TRIANGLES, this.handCount, gl.UNSIGNED_INT, this.handFirst * 4);
       }
@@ -1401,9 +1404,9 @@ void main() {
 
       // Hand pose transition:
       // The hand rests serenely over her stomach/obi belt by default.
-      // When welcoming or waving, the hand smoothly raises up (targetWave = 1.0).
-      // During welcome: wave runs for ~1.7s, then the hand smoothly returns to her stomach
-      // as she gives a polite bow (bow is 1.75s to 3.4s).
+      // During welcome: the hand smoothly raises (0 -> 0.32s), waves (0.32s -> 1.50s),
+      // smoothly returns to her stomach (1.50s -> 1.95s), and settles cleanly (0.0)
+      // before her polite bow (1.75s -> 3.4s).
       // After greeting, her hand stays resting over her stomach.
       let targetWave = 0;
       if (this.renderer && !this.renderer.hasRest) {
@@ -1413,14 +1416,20 @@ void main() {
         if (activeWave) {
           const age = t - activeWave.start;
           if (activeWave.type === 'welcome') {
-            targetWave = age < 1.7 ? 1.0 : 0.0;
+            targetWave = envelope(age, 0.32, 0.45, 1.95);
           } else {
-            targetWave = age < 1.5 ? 1.0 : 0.0;
+            targetWave = envelope(age, 0.32, 0.45, 2.05);
           }
         }
       }
-      const tau = targetWave > (this.wavePose || 0) ? 0.22 : 0.38;
-      this.wavePose = approach(this.wavePose || 0, targetWave, dt, tau);
+      if (targetWave > 0) {
+        this.wavePose = targetWave;
+      } else if (this.wavePose > 0) {
+        this.wavePose = approach(this.wavePose, 0, dt, 0.12);
+        if (this.wavePose < 0.003) this.wavePose = 0;
+      } else {
+        this.wavePose = 0;
+      }
 
       // Arms drift with her breathing, move more while she talks, and gestures ride on top.
       const breath = 0.5 - 0.5 * Math.cos((t * 2 * Math.PI) / 4.2);
