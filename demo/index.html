@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Projection · food order assistant</title>
+<style>
+  :root {
+    --ink: #1f2140; --muted: #6b6f8f; --accent: #4b3fd6; --accent-2: #7b5cf0;
+    --line: #e3e2f1; --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink);
+    background: radial-gradient(1100px 700px at 72% 42%, #ebe8ff 0%, #f5f4fb 55%, #fbfaf7 100%);
+  }
+  .app {
+    display: grid; grid-template-columns: minmax(320px, 430px) 1fr; gap: 28px;
+    height: 100vh; padding: 24px; max-width: 1280px; margin: 0 auto;
+  }
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px;
+    display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 30px rgba(40, 30, 120, .06);
+    overflow: auto; align-self: center; max-height: 100%;
+  }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  h1 small { font-weight: 500; color: var(--muted); font-size: 13px; margin-left: 6px; }
+  .hint { margin: -8px 0 0; color: var(--muted); font-size: 13.5px; }
+  textarea {
+    width: 100%; min-height: 104px; resize: vertical; padding: 12px 14px; border: 1px solid var(--line);
+    border-radius: 12px; font: inherit; color: inherit; background: #fcfcff; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(75, 63, 214, .15); }
+  .actions { display: flex; gap: 10px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); padding: 9px 16px;
+  }
+  button:hover { border-color: #cfcbef; }
+  button.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border: 0;
+    font-weight: 600; padding: 10px 30px;
+  }
+  button.primary:hover { filter: brightness(1.07); }
+  button:disabled { opacity: .5; cursor: default; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12.5px; padding: 5px 10px; border-radius: 999px; background: #f4f3fd; border-color: #e6e3fb; color: #3b3a7a; }
+  .now {
+    background: #faf9ff; border: 1px dashed #dcd8fb; border-radius: 12px; padding: 12px 14px;
+    min-height: 70px; font-size: 14px;
+  }
+  .now .line { color: var(--ink); }
+  .now .line.idle { color: var(--muted); }
+  .now .line span.on { background: #ffe7a1; border-radius: 4px; box-shadow: 0 0 0 2px #ffe7a1; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tag { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: #fff; border: 1px solid var(--line); color: var(--muted); }
+  .tag.emo { color: var(--accent); border-color: #d9d4fb; background: #f4f2ff; }
+  .settings {
+    display: grid; grid-template-columns: 64px 1fr; gap: 10px 12px; align-items: center;
+    font-size: 13.5px; padding-top: 12px; border-top: 1px solid var(--line);
+  }
+  .settings > label { color: var(--muted); }
+  select { font: inherit; font-size: 13.5px; width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; justify-self: start; }
+  .seg button { border: 0; border-radius: 0; padding: 6px 12px; font-size: 13px; }
+  .seg button.on { background: #efedff; color: var(--accent); font-weight: 600; }
+  .check { display: flex; gap: 8px; align-items: center; }
+  .check input { accent-color: var(--accent); }
+  .stage { position: relative; min-height: 0; }
+  .avatar { position: absolute; inset: 0; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 20px; }
+  .note { font-size: 12px; color: var(--muted); margin: 0; }
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; height: auto; }
+    .stage { order: -1; height: 62vh; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <section class="panel">
+    <h1>Voice Projection <small>food order assistant</small></h1>
+    <p class="hint">Type a sentence and press <b>OK</b>.</p>
+    <textarea id="text" placeholder="Type something for her to say…">Welcome! What would you like to order today? Please have a look at our menu.</textarea>
+    <div class="actions">
+      <button id="ok" class="primary">OK</button>
+      <button id="stop">Stop</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="now">
+      <div class="line idle" id="line">Ready.</div>
+      <div class="tags" id="tags"></div>
+    </div>
+    <div class="settings">
+      <label for="voice">Voice</label>
+      <select id="voice"><option>Loading voices…</option></select>
+      <label for="sound">Sound</label>
+      <label class="check"><input type="checkbox" id="sound" checked> Speak out loud</label>
+      <label for="rate">Speed</label>
+      <input type="range" id="rate" min="0.7" max="1.4" step="0.05" value="1">
+      <label>View</label>
+      <div class="seg" id="view">
+        <button data-view="full" class="on">Full body</button>
+        <button data-view="close">Close-up</button>
+      </div>
+    </div>
+    <p class="note">Tip: Enter = OK, Shift+Enter = new line. The voice comes from your browser, so it differs between Chrome, Safari and Edge.</p>
+  </section>
+
+  <section class="stage">
+    <div class="avatar" id="avatar"></div>
+    <div class="loading" id="loading">Loading avatar…</div>
+  </section>
+</main>
+
+<script src="../avatars/kimono/rig.js" charset="utf-8"></script>
+<script src="../avatars/kimono/image.js" charset="utf-8"></script>
+<script src="../src/voice-projection.js" charset="utf-8"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const SAMPLES = [
+    'Welcome! What would you like to order today?',
+    'Please have a look at our menu.',
+    'Our special today is ramen. It is delicious!',
+    'Sure! I added two sushi rolls to your order.',
+    'Would you like a drink with that?',
+    'Sorry, the tempura is sold out today.',
+    'Your order is ready. Thank you so much!',
+    'Please take a look at our menu. We have some amazing specials today!',
+  ];
+  const EMOJI = { neutral: '🙂', happy: '😊', sad: '😢', surprised: '😮', thinking: '🤔', angry: '😠' };
+  const GESTURE_LABEL = {
+    welcome: '👋 welcome + bow', wave: '👋 wave', bow: '🙇 bow', present: '🫴 show', invite: '🤲 please',
+    nod: '↕ nod', shake: '↔ shake head', tilt: '↘ tilt head', emphasis: '❗ emphasis',
+    pointMenu: '☞ point to menu',
+  };
+
+  let avatar = null;
+
+  VoiceProjection.createAvatar($('avatar'), {
+    rig: 'kimono',
+    onSentence: showSentence,
+    onWord: (i) => {
+      document.querySelectorAll('#line span').forEach((el, k) => el.classList.toggle('on', k === i));
+    },
+    onEnd: () => {
+      document.querySelectorAll('#line span').forEach((el) => el.classList.remove('on'));
+    },
+  }).then(async (a) => {
+    avatar = a;
+    $('loading').remove();
+    setTimeout(() => a.welcome(), 600); // greet the guest as soon as she appears
+    fillVoices(await a.getVoices());
+  }).catch((err) => {
+    $('loading').textContent = 'Could not start the avatar: ' + err.message;
+  });
+
+  function say(text) {
+    if (!avatar || !text.trim()) return;
+    avatar.speak(text);
+  }
+
+  function showSentence(s) {
+    const line = $('line');
+    line.classList.remove('idle');
+    line.textContent = '';
+    let pos = 0;
+    for (const w of s.words) {
+      line.append(s.text.slice(pos, w.start));
+      const span = document.createElement('span');
+      span.textContent = w.text;
+      line.append(span);
+      pos = w.end;
+    }
+    line.append(s.text.slice(pos));
+
+    const tags = $('tags');
+    tags.textContent = '';
+    const emo = document.createElement('span');
+    emo.className = 'tag emo';
+    emo.textContent = `${EMOJI[s.emotion]} ${s.emotion}` + (s.emotion === 'neutral' ? '' : ` ${Math.round(s.intensity * 100)}%`);
+    tags.append(emo);
+    for (const g of s.gestures) {
+      if (!GESTURE_LABEL[g.type]) continue;
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = `${GESTURE_LABEL[g.type]} · “${s.words[g.word].text}”`;
+      tags.append(tag);
+    }
+  }
+
+  function fillVoices(voices) {
+    const sel = $('voice');
+    sel.textContent = '';
+    if (!voices.length) {
+      sel.append(new Option('No voices in this browser (silent mode)', ''));
+      sel.disabled = true;
+      return;
+    }
+    for (const v of voices) {
+      sel.append(new Option(`${v.name} (${v.lang})`, v.name, false, avatar.voice && v.name === avatar.voice.name));
+    }
+  }
+
+  $('ok').onclick = () => say($('text').value);
+  $('stop').onclick = () => avatar && avatar.stop();
+  $('text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      say($('text').value);
+    }
+  });
+  for (const text of SAMPLES) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = text;
+    b.onclick = () => { $('text').value = text; say(text); };
+    $('chips').append(b);
+  }
+  $('voice').onchange = (e) => avatar && avatar.setVoice(e.target.value);
+  $('sound').onchange = (e) => avatar && avatar.setVoiceEnabled(e.target.checked);
+  $('rate').oninput = (e) => avatar && avatar.setRate(e.target.value);
+  $('view').onclick = (e) => {
+    const view = e.target.dataset && e.target.dataset.view;
+    if (!view || !avatar) return;
+    avatar.setView(view);
+    document.querySelectorAll('#view button').forEach((b) => b.classList.toggle('on', b === e.target));
+  };
+</script>
+</body>
+</html>

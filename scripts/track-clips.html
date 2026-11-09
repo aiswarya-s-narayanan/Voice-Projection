@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- Used by scripts/track-clips.mjs: follows the face through every frame of every clip. -->
+<html><head><meta charset="utf-8"></head><body>
+<script src="../src/voice-projection.js"></script>
+<script src="../src/video-avatar.js"></script>
+<script>
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const ready = (v) => (v.readyState >= 2 ? Promise.resolve() : new Promise((r, j) => { v.onloadeddata = r; v.onerror = () => j(new Error('cannot load ' + v.src)); }));
+  const seek = (v, t) => new Promise((r) => { v.onseeked = r; v.currentTime = t; });
+
+  // Follow the face through `url` at `fps`, starting from the home pose.
+  async function trackClip(url, rig, homeFrame, fps) {
+    const { FaceTracker, mouthGeometry } = VoiceProjection.videoInternals;
+    const tracker = new FaceTracker(rig.face, mouthGeometry(rig.face));
+    tracker.init(homeFrame);
+    const v = document.createElement('video');
+    v.muted = true;
+    v.src = url;
+    await ready(v);
+    const frames = [];
+    for (let i = 0; i * (1 / fps) <= v.duration - 0.02; i++) {
+      await seek(v, i / fps);
+      const st = tracker.update(v, rig.size);
+      // Raw mouth position of this frame (the live tracker smooths over time; we smooth later, both ways).
+      frames.push([st.x, st.y, st.rot, st.scale, st.conf]);
+    }
+    return frames;
+  }
+
+  // Short unsure stretches (blinks, a quick turn) between sure frames are bridged: position
+  // and confidence come from the sure frames on both sides.
+  function bridge(frames, minConf, maxGap) {
+    const out = frames.map((f) => f.slice());
+    for (let i = 0; i < out.length; i++) {
+      if (out[i][4] >= minConf) continue;
+      let j = i;
+      while (j < out.length && out[j][4] < minConf) j++;
+      if (i > 0 && j < out.length && j - i <= maxGap) {
+        const a = out[i - 1], b = out[j];
+        for (let k = i; k < j; k++) {
+          const u = (k - i + 1) / (j - i + 1);
+          out[k] = [0, 1, 2, 3].map((m) => a[m] + (b[m] - a[m]) * u).concat(Math.min(a[4], b[4]) * 0.97);
+        }
+      }
+      i = j;
+    }
+    return out;
+  }
+
+  // Smooth confident frames over +-2 frames; low-confidence frames take their neighbours' position.
+  function smooth(frames, minConf) {
+    frames = bridge(frames, minConf, 18);
+    const out = frames.map((f) => f.slice());
+    for (let i = 0; i < frames.length; i++) {
+      for (let k = 0; k < 4; k++) {
+        let s = 0, w = 0;
+        for (let j = Math.max(0, i - 2); j <= Math.min(frames.length - 1, i + 2); j++) {
+          const c = frames[j][4];
+          if (c < minConf) continue;
+          const wt = c * (j === i ? 2 : 1);
+          s += frames[j][k] * wt;
+          w += wt;
+        }
+        if (w > 0) out[i][k] = s / w;
+      }
+    }
+    return out.map((f) => f.map((v, k) => +v.toFixed(k === 2 ? 4 : k === 3 ? 4 : 2)));
+  }
+
+  window.run = async (clips, rigName, fps) => {
+    const rig = VoiceProjectionVideoRigs[rigName];
+    const home = document.createElement('video');
+    home.muted = true;
+    home.src = clips[rig.idle.clip];
+    await ready(home);
+    await seek(home, 0);
+    const result = {};
+    for (const [name, url] of Object.entries(clips)) {
+      const raw = await trackClip(url, rig, home, fps);
+      result[name] = { fps, frames: smooth(raw, 0.8) };
+    }
+    return result;
+  };
+</script>
+<script src="../avatars/kimono/video-rig.js"></script>
+</body></html>

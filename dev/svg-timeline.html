@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- Plays a sentence silently with a simulated clock and shows frames over time. -->
+<html><head><meta charset="utf-8"></head><body style="margin:0;background:#f1effa;font:11px monospace">
+<pre id="log" style="margin:0"></pre><div id="a" style="width:300px;height:540px;position:absolute;left:-3000px"></div><canvas id="sheet"></canvas>
+<script src="../src/voice-projection.js"></script>
+<script src="../src/svg-avatar.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const log = (m) => document.getElementById('log').textContent += m + '\n';
+let fake = performance.now(); const t0 = fake; performance.now = () => fake;
+(async () => {
+  const av = await VoiceProjection.createSvgAvatar(document.getElementById('a'), { voice: false, autoStart: false, view: q.get('view') || 'full' });
+  const events = [];
+  av.talker.hooks.onSentence = ((f) => (s, i, n) => { events.push(((fake - t0) / 1000).toFixed(1) + 's S' + i + ':' + s.emotion + '[' + s.gestures.map((g) => g.type).join(',') + ']'); f(s, i, n); })(av.talker.hooks.onSentence);
+  if (q.get('welcome')) av.welcome();
+  setTimeout(() => av.speak(q.get('text') || 'Welcome! Please have a look at our menu. Our ramen is delicious. Thank you so much!'), 0);
+  const W = +(q.get('cw') || 150), H = +(q.get('ch') || 270), cols = +(q.get('cols') || 12), n = +(q.get('n') || 36), every = +(q.get('every') || 10);
+  const sheet = document.getElementById('sheet'); sheet.width = cols * W; sheet.height = Math.ceil(n / cols) * (H + 12);
+  const g = sheet.getContext('2d'); g.font = '10px monospace';
+  let k = 0;
+  for (let f = 0; k < n && f < 3000; f++) {
+    await new Promise((r) => setTimeout(r, 0));
+    fake += 1000 / 30; av.update(1 / 30);
+    if (f % every === 0) {
+      const copy = av.svg.cloneNode(true); copy.setAttribute('width', W * 2); copy.setAttribute('height', H * 2);
+      const xml = new XMLSerializer().serializeToString(copy);
+      const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml); await img.decode();
+      const x = (k % cols) * W, y = Math.floor(k / cols) * (H + 12);
+      g.fillStyle = '#fff'; g.fillRect(x + 1, y + 12, W - 2, H);
+      g.drawImage(img, x, y + 12, W, H); g.fillStyle = '#222';
+      g.fillText(((fake - t0) / 1000).toFixed(1) + 's ' + av.gestures.filter((z) => !/bob|beat/.test(z.type)).map((z) => z.type).join(','), x + 2, y + 9);
+      k++;
+    }
+  }
+  log(events.join(' | '));
+  document.title = 'done';
+})().catch((e) => { log('ERR ' + (e && (e.stack || e.name + ': ' + e.message) || e)); document.title = 'done'; });
+</script></body></html>

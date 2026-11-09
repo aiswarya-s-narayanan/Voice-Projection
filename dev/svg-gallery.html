@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Shows the SVG avatar in each pose side by side (for checking how gestures look). -->
+<html><head><meta charset="utf-8"><style>
+body{margin:0;background:#f1effa;font:12px system-ui;display:flex;flex-wrap:wrap;gap:6px;padding:6px}
+.cell{width:var(--w,280px);height:var(--h,520px);background:#fff;border-radius:8px;position:relative}
+.cell span{position:absolute;left:6px;top:4px;color:#555}
+</style></head><body>
+<script src="../src/voice-projection.js"></script>
+<script src="../src/svg-avatar.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+if (q.get('w')) document.body.style.setProperty('--w', q.get('w') + 'px');
+if (q.get('h')) document.body.style.setProperty('--h', q.get('h') + 'px');
+const sets = {
+  body: ['rest', 'talk', 'wave', 'bow', 'present', 'invite', 'explain', 'point', 'think', 'tilt'],
+  face: ['rest', 'happy', 'sad', 'surprised', 'angry', 'blink', 'A', 'E', 'O', 'U', 'M', 'happy+A'],
+};
+const names = (q.get('set') && sets[q.get('set')]) || sets.body;
+(async () => {
+  for (const name of names) {
+    const cell = document.createElement('div'); cell.className = 'cell';
+    const label = document.createElement('span'); label.textContent = name;
+    document.body.append(cell);
+    const av = await VoiceProjection.createSvgAvatar(cell, { voice: false, autoStart: false, view: q.get('view') || 'full' });
+    cell.append(label);
+    av.showPose(name);
+  }
+  document.title = 'done';
+})();
+</script></body></html>

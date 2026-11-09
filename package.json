@@ -1,0 +1,22 @@
+{
+  "name": "voice-projection",
+  "version": "0.1.0",
+  "description": "Talking avatar for the browser: pass text and the avatar speaks it with lip sync, facial expressions and body gestures.",
+  "main": "src/voice-projection.js",
+  "files": [
+    "src",
+    "avatars",
+    "scripts"
+  ],
+  "scripts": {
+    "demo": "open demo/index.html",
+    "build:image": "node scripts/image-to-js.mjs avatars/kimono/avatar.jpg kimono avatars/kimono/image.js"
+  },
+  "keywords": [
+    "avatar",
+    "talking-head",
+    "lip-sync",
+    "text-to-speech",
+    "webgl"
+  ]
+}
