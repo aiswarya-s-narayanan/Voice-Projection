@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chef-ditto-avatar"
+version = "0.1.0"
+description = "Local Ditto avatar playback sidecar for the Chef Piper voice kiosk"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+include = ["avatar_kiosk*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

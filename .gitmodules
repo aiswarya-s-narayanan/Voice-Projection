@@ -1,0 +1,3 @@
+[submodule "vendor/ditto"]
+	path = vendor/ditto
+	url = https://github.com/antgroup/ditto-talkinghead.git

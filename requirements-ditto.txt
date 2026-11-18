@@ -1,0 +1,17 @@
+-r requirements-desktop.txt
+# Install CUDA-enabled torch/torchvision separately for the deployment driver.
+numpy==1.26.4
+librosa==0.10.2.post1
+onnxruntime-gpu==1.20.2
+opencv-python-headless==4.10.0.84
+scikit-image>=0.24,<0.26
+mediapipe==0.10.21
+# MediaPipe 0.10.21 requires protobuf <5; keep the avatar environment isolated.
+protobuf==4.25.8
+einops>=0.8,<1
+cython>=3,<4
+imageio>=2.36,<3
+imageio-ffmpeg>=0.5,<1
+filetype==1.2.0
+tqdm>=4.67,<5
+huggingface-hub>=0.27,<2
