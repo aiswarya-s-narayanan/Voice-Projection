@@ -40,7 +40,8 @@ def main():
     prepare_gpu_environment()
     ctx = mp.get_context("spawn")
     commands, events = ctx.Queue(512), ctx.Queue(50)
-    worker = ctx.Process(target=run_worker, args=(Settings.from_env(), commands, events), daemon=True)
+    settings = Settings.from_env()
+    worker = ctx.Process(target=run_worker, args=(settings, commands, events), daemon=True)
     worker.start()
     video = output.with_suffix(".silent.mp4")
     wav_path = output.with_suffix(".wav")
@@ -89,6 +90,8 @@ def main():
                         "-i", str(video), "-i", str(wav_path), "-c:v", "copy", "-c:a", "aac",
                         "-shortest", str(output)], check=True)
         metrics = {"frames": frames, "model_load_seconds": loaded - started,
+                   "render_settings": {key: getattr(settings, key) for key in
+                                       ("max_size", "sampling_steps", "render_stride", "jpeg_quality")},
                    "ambient_movement": args.ambient, "emotion": args.emotion, "timeline": timeline,
                    "animation_revision": "expressive-v2", "audio_preserved": True,
                    "first_frame_seconds": first - loaded,

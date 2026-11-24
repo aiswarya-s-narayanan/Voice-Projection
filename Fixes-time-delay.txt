@@ -1,0 +1,58 @@
+Why your avatar is slow to start talking (in simple words)
+What’s happening now
+
+When you click Speak message, three things happen one after another, and the avatar only starts talking after all three are done:
+
+The voice is made. The voice program (Piper) starts fresh and loads its voice file for every sentence. That wastes time.
+The face video is made. Your graphics card (GPU) draws the talking face. It’s slow. In your test, 2.8 seconds of speech took about 10 seconds to draw. That’s roughly 3.5 times slower than the speech itself.
+The app waits. The browser waits until the whole reply is finished before playing anything. You set it up this way on purpose, so the voice doesn’t cut out in the middle of a sentence.
+
+So the big wait comes mostly from step 2. If the GPU were as fast as the speech, the app wouldn’t need to wait.
+
+How to fix it
+Fix 1: Keep the voice program running (easy)
+
+Right now it’s like turning a car engine on and off for every sentence. Instead, start Piper once and leave it running. This saves about 1 to 3 seconds and is low risk.
+
+Fix 2: Do two jobs at the same time
+
+While the GPU draws the face for sentence 1, Piper can already make the voice for sentence 2. Like a kitchen where one person cooks while another chops.
+
+Fix 3: Make the GPU’s job lighter (the most important fix)
+
+This is the real cure. You can make the face drawing cheaper in these ways:
+
+Use a smaller picture size. You raised it to 2560 pixels for sharpness, but the browser only shows 720 pixels wide. Try 1280 or 1440. It will look almost the same but draw much faster.
+Use fewer drawing steps. Lower AVATAR_SAMPLING_STEPS from 10 to about 5 or 6. Fewer steps means less work.
+Draw fewer new faces. Set AVATAR_RENDER_STRIDE=5 so the GPU draws a new face less often and reuses the picture in between.
+Use lighter image files. Lower JPEG quality from 92 to about 85. This is a small gain.
+Try TensorRT. This is a tool that makes the model run much faster on NVIDIA cards, often 2 to 4 times. It’s probably the biggest single speedup.
+Close other heavy programs (like Whisper or Ollama) while testing, because they compete for the same GPU.
+
+To test a change, run:
+
+bash
+AVATAR_MAX_SIZE=1280 AVATAR_SAMPLING_STEPS=6 AVATAR_RENDER_STRIDE=5 \
+.venv/bin/python scripts/benchmark_playback.py outputs/temperature-speech-check.wav --stride 5
+
+You want the drawing to finish in about the same time as the speech lasts, or faster.
+
+Fix 4: Start talking early (only after Fix 3)
+
+Once the GPU is fast enough, the avatar doesn’t need to wait for the full reply. It can start once there’s a small head start of ready audio and video. Your desktop app already has this (“adaptive” mode). The browser doesn’t yet, so it would need the same logic added.
+
+If you do this before the GPU is fast enough, the stuttering and pauses will come back, because the speech would catch up with the unfinished video.
+
+Fix 5: Hide the wait while you work on it
+Show a “thinking” look on the avatar while it prepares.
+Start with a short first sentence like “Sure, let me check.” so something plays quickly, while the longer part is still being made.
+What to do, in order
+Keep Piper running (safe and easy).
+Lower the picture size and drawing steps, then measure.
+Make voice and face work at the same time.
+Try TensorRT if it’s still too slow.
+Add early start to the browser.
+
+One thing to know: Step 2 gives up a little of the sharpness you added recently. In the normal portrait view you probably won’t notice, but check the full-character view to be sure.
+
+If you share demo_tts.py and worker.py, I can help write the code for the always-running Piper and the overlapping work.

@@ -14,6 +14,12 @@ class KioskAvatar:
         with urlopen(request, timeout=self.timeout) as response:
             return json.load(response)
 
+    def speak_text(self, text, *, emotion="auto"):
+        """Use the service's persistent Piper and sentence rendering pipeline."""
+        result = self._post('/speak-text', json.dumps({'text': text, 'emotion': emotion}).encode(),
+                            'application/json')
+        return result.get('turn')  # None when Stop cancelled preparation.
+
     def speak_wav(self, path, *, emotion="auto", text="", timeline=None):
         """Replaces direct speaker playback of the generated Piper WAV."""
         params = {"emotion": emotion, "text": text}

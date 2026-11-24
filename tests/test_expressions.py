@@ -85,3 +85,12 @@ def test_expression_accents_ease_out_and_preserve_lips():
     for i in range(30, 90):
         effect.apply(image, i*.04, 'surprise', speaking=False)
     assert np.max(np.abs(effect.values)) < .01
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('Fantastic!', 'excited'),
+    ("Don't worry, I am here to help.", 'reassuring'),
+    ('Are you sure?', 'skeptical'),
+])
+def test_new_conversation_cues(text, expected):
+    assert resolve_emotion('auto', text) == expected

@@ -4,9 +4,9 @@ Thinking/suggestion are conversational cues, not native Ditto emotion labels.
 """
 import re
 
-EMOTIONS = ("neutral", "happy", "sad", "surprise", "thinking", "suggestion", "curious", "concerned")
+EMOTIONS = ("neutral", "happy", "sad", "surprise", "thinking", "suggestion", "curious", "concerned", "excited", "reassuring", "skeptical")
 DITTO_EMOTIONS = {"neutral": 4, "happy": 3, "sad": 5, "surprise": 6,
-                  "thinking": 4, "suggestion": [3, 4], "curious": 4, "concerned": 4}
+                  "thinking": 4, "suggestion": [3, 4], "curious": 4, "concerned": 4, "excited": 3, "reassuring": 4, "skeptical": 4}
 
 
 def resolve_emotion(emotion="auto", text=""):
@@ -17,6 +17,9 @@ def resolve_emotion(emotion="auto", text=""):
     text = text.lower().replace("’", "'")
     # Priority favors apologies over greetings, and explicit cues over punctuation.
     cues = (
+        ("reassuring", r"\b(don't worry|no worries|it's okay|everything will be okay|take your time|here to help)\b"),
+        ("skeptical", r"\b(are you sure|not convinced|skeptical|doubtful)\b"),
+        ("excited", r"\b(excited|fantastic|can't wait|congratulations|let's celebrate)\b"),
         ("sad", r"\b(sorry|sad|unfortunately|apolog\w*|regret|disappointed|unavailable|sold out)\b"),
         ("concerned", r"\b(worried|concerned|worry|pain|hurt|trouble|anxious)\b"),
         ("surprise", r"\b(wow|surpris\w*|amazing|unbelievable|oh my)\b"),

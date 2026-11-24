@@ -11,6 +11,7 @@ from collections import deque
 
 from .audio import HubertWindows, SAMPLES_PER_FRAME
 from .expressions import DITTO_EMOTIONS
+from .head_alignment import align_face_to_head
 from .emotion_motion import restore_emotion, expression_controls, SentenceExpression
 from .expression_timeline import cue_at
 
@@ -129,6 +130,7 @@ def run_worker(settings, commands, events, cancel=None):
                                              if sentence_expression else
                                              expression_controls(emotion, (output_index-1)/25, energy))
                     x_s, x_d = self.motion_stitch(source, motion, **controls)
+                    x_d = align_face_to_head(x_s, x_d)
                     self.warp_f3d_queue.put([frame_idx, x_s, x_d])
 
         neutral_reference = None
@@ -161,6 +163,9 @@ def run_worker(settings, commands, events, cancel=None):
         frame_index = 0
         turn = None
         warming = True
+        # Cache setup parameters that do not change between turns to skip
+        # redundant image registration and model re-initialization.
+        cached_setup_done = False
 
         def emit_frame(rgb):
             nonlocal frame_index
@@ -170,7 +175,8 @@ def run_worker(settings, commands, events, cancel=None):
             if not warming:
                 picture = Image.fromarray(rgb)
                 buffer = io.BytesIO()
-                picture.save(buffer, format="JPEG", quality=85)
+                # Preserve portrait detail and color edges at the browser display scale.
+                picture.save(buffer, format="JPEG", quality=settings.jpeg_quality, subsampling=0)
                 jpeg = base64.b64encode(buffer.getvalue()).decode()
             for _ in range(settings.render_stride):
                 start = frame_index * SAMPLES_PER_FRAME * 2
@@ -191,7 +197,8 @@ def run_worker(settings, commands, events, cancel=None):
                                 "pcm": base64.b64encode(pcm).decode()})
                 frame_index += 1
 
-        bootstrap = deque([("begin", "warmup"), ("audio", bytes(32000)), ("end",)])
+        # Warmup with shorter silence to reduce initial load time.
+        bootstrap = deque([("begin", "warmup"), ("audio", bytes(16000)), ("end",)])
         while True:
             try:
                 command = bootstrap.popleft() if bootstrap else commands.get(timeout=0.1)
@@ -214,6 +221,11 @@ def run_worker(settings, commands, events, cancel=None):
                 finished = False
                 frame_index = 0
                 windows = HubertWindows()
+                # Notify the browser that the turn has started before the
+                # potentially slow sdk.setup() call.  This lets the browser
+                # enter the Thinking state and prepare the audio context early.
+                if not warming:
+                    events.put({"type": "started", "turn": turn, "emotion": emotion})
                 sdk.default_kwargs = copy.deepcopy(original_defaults)
                 sdk.setup(settings.image, "/tmp/ditto-unused", online_mode=True,
                           max_size=settings.max_size, emo=DITTO_EMOTIONS[emotion], ch_info=None,
@@ -233,12 +245,15 @@ def run_worker(settings, commands, events, cancel=None):
                     zeros = sdk.wav2feat.wav2feat(np.zeros(prime * 640, np.float32), sr=16000)
                     sdk.audio2motion_queue.put(zeros)
                     sdk.cond_idx_start -= prime
-                if not warming:
-                    events.put({"type": "started", "turn": turn, "emotion": emotion})
-            elif kind == "audio":
+                cached_setup_done = True
+            elif kind in ("audio", "sentence"):
                 if cancel.is_set():
                     continue
                 with condition:
+                    if kind == "sentence" and audio:
+                        # Publish this cue before its audio can generate frames.
+                        # SentenceExpression holds this same append-only list.
+                        timeline.append({"start": len(audio) / 32000, "emotion": command[2]})
                     audio.extend(command[1])
                     condition.notify_all()
                 for window in windows.feed(command[1]):

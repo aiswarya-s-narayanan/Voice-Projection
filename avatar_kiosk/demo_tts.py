@@ -1,54 +1,43 @@
 """Optional offline text-to-speech demo, isolated from Ditto's CUDA dependencies."""
-import os
 from pathlib import Path
-import subprocess
 import tempfile
-import time
 
-from .config import ROOT
 from .speech_text import normalize_speech_text
+from .persistent_voice import voice
 
 
-def synthesize(text, output, cancel):
+def prepare_voice(cancel):
+    return voice.run(None, cancel) is not None
+
+
+def close_voice():
+    voice.close()
+
+
+def _synthesize_audio(text, cancel):
     text = text.strip()
     if not text:
         raise ValueError("Enter some text first.")
     if len(text) > 800:
         raise ValueError("Please use 800 characters or fewer for the demo.")
-    text = normalize_speech_text(text)
-    python = Path(os.environ.get("PIPER_PYTHON", ROOT / ".venv-piper/bin/python"))
-    model = Path(os.environ.get("PIPER_MODEL", ROOT / "models/piper/en_US-lessac-medium.onnx"))
-    if not python.exists() or not model.exists():
-        raise RuntimeError("Demo voice is not installed. See the Text-to-speech demo section in README.md.")
-    if cancel.is_set():
+    return voice.run(normalize_speech_text(text), cancel)
+
+
+def synthesize_sentence_pcm(text, cancel):
+    """One complete sentence at the renderer's 16 kHz rate, ready to enqueue."""
+    from .audio import wav_to_pcm
+    audio = _synthesize_audio(text, cancel)
+    if audio is None or cancel.is_set():
+        return None
+    return wav_to_pcm(audio)
+
+
+def synthesize(text, output, cancel):
+    audio = _synthesize_audio(text, cancel)
+    if audio is None or cancel.is_set():
         return False
-    with tempfile.TemporaryFile(mode="w+b") as errors:
-        process = subprocess.Popen(
-            [str(python), "-m", "piper", "--model", str(model), "--output_file", str(output)],
-            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=errors,
-        )
-        try:
-            process.stdin.write(text.encode("utf-8"))
-            process.stdin.close()
-            deadline = time.monotonic() + 60
-            while process.poll() is None:
-                if cancel.wait(0.05):
-                    return False
-                if time.monotonic() > deadline:
-                    raise RuntimeError("Demo voice timed out. Try a shorter sentence.")
-            if process.returncode:
-                errors.seek(0)
-                detail = errors.read().decode("utf-8", errors="replace")[-1500:]
-                raise RuntimeError("Piper could not create speech: " + detail)
-            return not cancel.is_set()
-        finally:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+    Path(output).write_bytes(audio)
+    return not cancel.is_set()
 
 
 def synthesize_sentences(text, output, cancel, emotion='auto'):

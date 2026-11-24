@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chef · Your avatar</title>
+<link rel="stylesheet" href="/web/style.css?v=2">
+<script src="/web/motion.js?v=5" defer></script>
+<script src="/web/app.js?v=6" defer></script>
+</head>
+<body>
+<main>
+<header><a class="brand" href="/">Chef<span> / Your avatar</span></a><span class="badge">LOCAL STUDIO</span></header>
+<section class="studio" aria-label="Avatar studio">
+<div class="stage">
+<div class="stage-top" id="stage-status" data-thinking="false"><span class="live-dot"></span><span id="mood">Ready to meet you</span><span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+<div id="portrait" class="portrait"><canvas id="avatar" aria-label="Animated speaking avatar"></canvas></div>
+<div class="stage-bottom"><span>Made for a conversation.</span><button id="view" type="button" aria-pressed="false">Full character ↗</button></div>
+</div>
+<div class="editor">
+<p class="eyebrow">GIVE YOUR CHARACTER A VOICE</p>
+<h1>A little expression.<br>A lot of personality.</h1>
+<p class="intro">Write a message and watch your avatar bring each sentence to life.</p>
+<div id="status" role="status" aria-live="polite">Click Connect to begin.</div>
+<button id="connect" class="primary" type="button">Connect avatar</button>
+<form id="form">
+<label for="text">What should I say?</label>
+<textarea id="text" maxlength="800" rows="5" required>Hello! I am sorry that happened. How can I help? I recommend trying again.</textarea>
+<div class="field-footer"><span>English voice · Ctrl + Enter to speak</span><span id="count">0 / 800</span></div>
+<label for="emotion">Expression</label>
+<select id="emotion"><option value="auto">Auto · follow each sentence</option><option>neutral</option><option>happy</option><option>sad</option><option>surprise</option><option>thinking</option><option>suggestion</option><option>curious</option><option>concerned</option><option>excited</option><option>reassuring</option><option>skeptical</option></select>
+<div class="actions"><button id="speak" class="primary" disabled>Speak message <span>↗</span></button><button id="stop" type="button" disabled>Stop</button></div>
+</form>
+<p class="note">Keep this tab open while speaking. Close the desktop avatar before connecting here.</p>
+</div>
+</section>
+<footer><span>CHEF AVATAR STUDIO</span><span>Sentence by sentence. Expression by expression.</span></footer>
+</main>
+</body>
+</html>

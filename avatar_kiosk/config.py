@@ -20,10 +20,11 @@ class Settings:
     image: str = str(ROOT / "Avatar/avatar.jpg")
     data_root: str = str(ROOT / "models/ditto/ditto_pytorch")
     config: str = str(ROOT / "models/ditto/ditto_cfg/v0.4_hubert_cfg_pytorch.pkl")
-    max_size: int = 1280
-    batch_size: int = 1
-    render_stride: int = 3
-    sampling_steps: int = 10
+    max_size: int = 1440
+    batch_size: int = 2
+    render_stride: int = 5
+    sampling_steps: int = 6
+    jpeg_quality: int = 85
 
     @classmethod
     def from_env(cls):
@@ -33,10 +34,11 @@ class Settings:
             image=os.environ.get("AVATAR_IMAGE", defaults.image),
             data_root=os.environ.get("DITTO_DATA_ROOT", defaults.data_root),
             config=os.environ.get("DITTO_CONFIG", defaults.config),
-            max_size=int(os.environ.get("AVATAR_MAX_SIZE", "1280")),
-            batch_size=int(os.environ.get("AVATAR_BATCH_SIZE", "1")),
-            render_stride=max(1, min(5, int(os.environ.get("AVATAR_RENDER_STRIDE", "3")))),
-            sampling_steps=int(os.environ.get("AVATAR_SAMPLING_STEPS", "10")),
+            max_size=int(os.environ.get("AVATAR_MAX_SIZE", str(defaults.max_size))),
+            batch_size=max(1, min(8, int(os.environ.get("AVATAR_BATCH_SIZE", str(defaults.batch_size))))),
+            render_stride=max(1, min(10, int(os.environ.get("AVATAR_RENDER_STRIDE", str(defaults.render_stride))))),
+            sampling_steps=int(os.environ.get("AVATAR_SAMPLING_STEPS", str(defaults.sampling_steps))),
+            jpeg_quality=max(1, min(100, int(os.environ.get("AVATAR_JPEG_QUALITY", str(defaults.jpeg_quality))))),
         )
 
     def missing(self):

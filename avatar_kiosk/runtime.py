@@ -70,6 +70,8 @@ class Runtime:
             raise ValueError("Connect the avatar display before speaking")
         self.turn = uuid.uuid4().hex
         self.samples = 0
+        self.sentence_count = 0
+        self.sentence_timeline = bool(timeline)
         self.ending = False
         self.state = "speaking"
         self.changed = time.monotonic()
@@ -85,6 +87,28 @@ class Runtime:
             raise ValueError("Turn exceeds 90 seconds")
         self.commands.put_nowait(("audio", pcm))
         self.samples += len(pcm) // 2
+        self.changed = time.monotonic()
+
+    def feed_sentence(self, turn, pcm, emotion):
+        """Queue audio and its expression atomically before synthesizing the next.
+
+        A sentence is one bounded command (total turn <= 90 seconds, <= 100
+        sentences), avoiding a separate timing command racing with audio input.
+        """
+        emotion = resolve_emotion(emotion)
+        if turn != self.turn or self.ending:
+            raise ValueError("Turn is closed or interrupted")
+        if not self.sentence_timeline:
+            raise ValueError("Sentence streaming requires an expression timeline")
+        if not pcm or len(pcm) % 2:
+            raise ValueError("Sentence must contain whole PCM16 samples")
+        if self.samples + len(pcm) // 2 > RATE * MAX_SECONDS:
+            raise ValueError("Turn exceeds 90 seconds")
+        if self.sentence_count >= 100:
+            raise ValueError("Turn exceeds 100 sentences")
+        self.commands.put_nowait(("sentence", pcm, emotion))
+        self.samples += len(pcm) // 2
+        self.sentence_count += 1
         self.changed = time.monotonic()
 
     def end(self, turn):

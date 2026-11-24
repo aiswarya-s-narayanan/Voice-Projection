@@ -6,7 +6,6 @@ import json
 import queue
 import threading
 import time
-import tempfile
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
@@ -18,7 +17,6 @@ from websockets.sync.client import connect
 from .client import KioskAvatar
 from .config import Settings, ROOT
 from .playback import Playback
-from .demo_tts import synthesize_sentences
 from .ambient_motion import AmbientMotion
 from .idle_blink import IdleBlink
 from .expressions import EMOTIONS
@@ -201,15 +199,11 @@ def main():
             try:
                 if client.status()["state"] != "ready":
                     raise RuntimeError("Avatar is busy. Wait for it to finish, or press Stop speaking.")
-                with tempfile.TemporaryDirectory(prefix="chef-voice-") as temp:
-                    wav = Path(temp) / "speech.wav"
-                    timeline = synthesize_sentences(text, wav, cancellation, emotion)
-                    if timeline and not done.is_set():
-                        if cancellation.is_set():
-                            return
-                        client.speak_wav(wav, emotion=emotion, text=text, timeline=timeline)
-                        if cancellation.is_set():
-                            client.interrupt()
+                if cancellation.is_set() or done.is_set():
+                    return
+                client.speak_text(text, emotion=emotion)
+                if cancellation.is_set() or done.is_set():
+                    client.interrupt()
             except Exception as exc:
                 messages.put("Could not speak: " + str(exc))
             finally:

@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import webbrowser
 from urllib.request import urlopen
 
 from .config import ROOT
@@ -32,6 +33,16 @@ def main():
                     time.sleep(0.1)
             else:
                 raise RuntimeError("Service did not start; see outputs/server.log")
+            if '--browser' in sys.argv[1:]:
+                url = 'http://127.0.0.1:8765/'
+                print(f'Avatar browser: {url}', flush=True)
+                webbrowser.open(url)
+                print('Keep this terminal open. Press Ctrl+C to stop the service.', flush=True)
+                try:
+                    service.wait()
+                except KeyboardInterrupt:
+                    pass
+                return
             display = subprocess.Popen([sys.executable, "-m", "avatar_kiosk.desktop", *sys.argv[1:]], cwd=ROOT)
             display.wait()
         finally:

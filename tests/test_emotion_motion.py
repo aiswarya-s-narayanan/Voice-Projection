@@ -34,3 +34,14 @@ def test_happy_sad_and_surprise_are_distinct_neural_controls():
     assert happy[14,1] < 0 < sad[14,1]
     assert surprise[11,1] < 0 < sad[11,1]
     assert not expression_controls('neutral', 1).any()
+
+
+@pytest.mark.parametrize('emotion', ['excited', 'reassuring', 'skeptical'])
+def test_extra_expressions_are_distinct_and_leave_jaw_articulation_alone(emotion):
+    from avatar_kiosk.expressions import resolve_emotion, DITTO_EMOTIONS
+    assert resolve_emotion(emotion) == emotion
+    assert emotion in DITTO_EMOTIONS
+    controls = expression_controls(emotion, 1).reshape(21, 3)
+    assert controls.any()
+    assert not controls[[6, 12, 17, 19]].any()
+    assert np.max(np.abs(controls)) < .015
